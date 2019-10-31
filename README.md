@@ -1,4 +1,3 @@
-=============================================
 
 This is a sample project for USTH ICT Master 2019.
 
@@ -11,7 +10,6 @@ Students are expected to:
 Student Info
 =======================
 
-<<<<<<< HEAD
 * Name: Antoine RANSON  
 * ID: *Skip*
 
