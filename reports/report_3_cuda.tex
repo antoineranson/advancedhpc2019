@@ -1,0 +1,33 @@
+\documentclass{article} 
+\usepackage[utf8]{inputenc} 
+\title{Report 3 :Hello Cuda} 
+\author{antoine ranson } 
+\date{November 2019} 
+\begin{document} 
+\maketitle 
+\section{How to implement the code ?} 
+To achieve the purpose we need to : 
+\begin{itemize} 
+\item get the number of pixel to process 
+\item allocate memory from the host for the output image 
+\item allocate memory from the device to store the input image and the output image 
+\item copy the image from the host to the device 
+\item process it 
+\item copy the processed image from the device to the host 
+\item clean the device memory 
+\end{itemize} 
+Check the code for more detail.
+ 
+\section{What's the speedup ?} 
+Using this implementation we have the following results :\newline 
+USTH ICT Master 2018, Advanced Programming for HPC\newline 
+Warming up... \newline 
+Starting labwork 3 \newline 
+labwork 1 CPU ellapsed 3068.9ms \newline
+labwork 3 GPU ellapsed 112.7ms \newline 
+So the acceleration is of about 30 times with a 64 block size. 
+
+\section{With different block size}
+Increasing the block size is making the program slower. 
+
+\end{document}
