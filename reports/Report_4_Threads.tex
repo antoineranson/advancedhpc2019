@@ -1,0 +1,21 @@
+\documentclass{article} 
+\usepackage[utf8]{inputenc} 
+\title{Report 4 : Threads} 
+\author{antoine ranson } 
+\date{November 2019} 
+\begin{document} 
+\maketitle 
+\section{How to improve the labwork} 
+\begin{itemize} 
+\item First we declare a dim3 blockSize 
+\item Then we declare the grid size by dividing the width and height by the blockSize corresponding dimension 
+\item We declare a kernel with the previous declared blockSize and gridSize 
+\item In the grayscale function, you add the 2nd dimension by calculting the length of a line, multiplying it by 
+the row index, and adding it to the current index. 
+\end{itemize} 
+
+\section{What's the speed up ?}
+
+Using this method, the code is slower than labwork3 by about 3 times.
+
+\end{document}

@@ -219,7 +219,7 @@ void Labwork::labwork3_GPU() {
 __global__ void grayscale2(uchar3 *input, uchar3 *output, int width, int height){
 	int tidx = threadIdx.x + blockIdx.x * blockDim.x;
 	int tidy = threadIdx.y + blockIdx.y * blockDim.y;
-	int rowIdx = tidy * blockDim.x * gridDim.x ;
+	int rowIdx = tidy *width ;
 	int tid = tidx + rowIdx ;
 	if ((tidx < width) and (tidy< height)){
 		output[tid].x = (input[tid].x + input[tid].y +input[tid].z) / 3;
