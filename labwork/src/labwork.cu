@@ -271,7 +271,7 @@ void Labwork::labwork4_GPU() {
 }
 
 
-__global__ void grayscale3_ss_SM(uchar3 *input, uchar3 *output, int width, int height){
+__global__ void gaussianBlur_ss_SM(uchar3 *input, uchar3 *output, int width, int height){
 	int kernel[7][7] = {
 			{0,0,1,2,1,0,0},
 			{0,3,13,22,13,3,0},
@@ -282,7 +282,6 @@ __global__ void grayscale3_ss_SM(uchar3 *input, uchar3 *output, int width, int h
 			{0,0,1,2,1,0,0}
 			} ;
 
-	//__shared__ char tile[BLOCK_SIZE] ;
         int tidx = (threadIdx.x + blockIdx.x * blockDim.x)-3;
         int tidy = (threadIdx.y + blockIdx.y * blockDim.y)-3;
         int rowIdx = (tidy+3) *width ;
@@ -293,7 +292,6 @@ __global__ void grayscale3_ss_SM(uchar3 *input, uchar3 *output, int width, int h
 	int i ;
 	int j ;
 	int somme = 0 ;
-	//tile[threadIdx.x] = input[tid].x ;
     
 	if ((tidx < width-4) and (tidx > 2) and (tidy< height-4) and (tidy>2)){
 	for  (i=0;i<7;i++){
@@ -304,7 +302,6 @@ __global__ void grayscale3_ss_SM(uchar3 *input, uchar3 *output, int width, int h
 			somme += kernel[i][j] ;
 		}
 	}
-	//printf("conv x = %d\n",tempx) ;
 	tempx = tempx / somme ;
 	tempy = tempy / somme ;
 	tempz = tempz / somme ;
@@ -312,11 +309,10 @@ __global__ void grayscale3_ss_SM(uchar3 *input, uchar3 *output, int width, int h
 	output[tid].y = tempy ;
 	output[tid].z = tempz ;
         }
-	//__syncthreads() ;
 }
 
 
-__global__ void grayscale3_avec_SM(uchar3 *input, uchar3 *output, int width, int height){
+__global__ void gaussianBlur_avec_SM(uchar3 *input, uchar3 *output, int width, int height){
 	 int kernel[7][7] = {
 			{0,0,1,2,1,0,0},
                         {0,3,13,22,13,3,0},
@@ -326,8 +322,10 @@ __global__ void grayscale3_avec_SM(uchar3 *input, uchar3 *output, int width, int
                         {0,3,13,22,13,3,0},
                         {0,0,1,2,1,0,0} 
 	} ;  
+	__shared__ int redtile[16][16] ;
+	__shared__ int greentile[16][16] ;
+	__shared__ int bluetile[16][16] ;
 
-	__shared__ char tile[BLOCK_SIZE] ;
         int tidx = (threadIdx.x + blockIdx.x * blockDim.x)-3;
         int tidy = (threadIdx.y + blockIdx.y * blockDim.y)-3;
         int rowIdx = (tidy+3) *width ;
@@ -338,14 +336,17 @@ __global__ void grayscale3_avec_SM(uchar3 *input, uchar3 *output, int width, int
         int i ;
         int j ;
         int somme = 0 ;
-        tile[threadIdx.x] = input[tid].x ;   
+        redtile[threadIdx.x][threadIdx.y] = input[tid].x ;   
+        greentile[threadIdx.x][threadIdx.y] = input[tid].y ;   
+        bluetile[threadIdx.x][threadIdx.y] = input[tid].z ;   
+
         if ((tidx < width-4) and (tidx > 2) and (tidy< height-4) and (tidy>2)){
 	        for  (i=0;i<7;i++){
  	               for (j=0;j<7;j++){
-	                       tempx += (kernel[i][j]) * (input[(tidx+i)+((tidy+j)*width)].x) ;
-                               tempy += (kernel[i][j]) * (input[(tidx+i)+((tidy+j)*width)].y) ;
-                               tempz += (kernel[i][j]) * (input[(tidx+i)+((tidy+j)*width)].z) ;
-                               somme += kernel[i][j] ;
+	                      tempx += (kernel[i][j]) * (redtile[((tidy+j)*width)][tidx+i]) ;
+                              tempy += (kernel[i][j]) * (greentile[((tidy+j)*width)][tidx +i ]) ;
+                              tempz += (kernel[i][j]) * (bluetile[((tidy+j)*width)][tidx + i]) ;
+                              somme += kernel[i][j] ;
                        }
                  }
         	tempx = tempx / somme ;
@@ -403,7 +404,7 @@ void Labwork::labwork5_GPU(){
        // Copy CUDA Memory from CPU to GPU
        cudaMemcpy(devInput, inputImage->buffer,pixelCount * sizeof(uchar3),cudaMemcpyHostToDevice);
        // Processing
-       dim3 blockSize = dim3(32,32);
+       dim3 blockSize = dim3(16,16);
        int numBlockx = inputImage-> width / (blockSize.x) ;
        int numBlocky = inputImage-> height / (blockSize.y) ;
        if ((inputImage-> width % (blockSize.x)) > 0) {    
@@ -413,7 +414,7 @@ void Labwork::labwork5_GPU(){
 	       numBlocky++ ;
 	}
        dim3 gridSize = dim3(numBlockx,numBlocky) ;
-       grayscale3_ss_SM<<<gridSize,blockSize>>>(devInput,devOutput, inputImage->width, inputImage->height) ;
+       gaussianBlur_avec_SM<<<gridSize,blockSize>>>(devInput,devOutput, inputImage->width, inputImage->height) ;
        // Copy CUDA Memory from GPU to CPU
        cudaMemcpy(outputImage, devOutput,pixelCount * sizeof(uchar3),cudaMemcpyDeviceToHost); 
        // Cleaning
