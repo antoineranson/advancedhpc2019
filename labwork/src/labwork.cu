@@ -272,7 +272,7 @@ void Labwork::labwork4_GPU() {
 
 
 __global__ void gaussianBlur_ss_SM(uchar3 *input, uchar3 *output, int width, int height){
-	int kernel[7][7] = {
+	const int kernel[7][7] = {
 			{0,0,1,2,1,0,0},
 			{0,3,13,22,13,3,0},
 			{1,13,59,97,59,13,1},
@@ -313,7 +313,7 @@ __global__ void gaussianBlur_ss_SM(uchar3 *input, uchar3 *output, int width, int
 
 
 __global__ void gaussianBlur_avec_SM(uchar3 *input, uchar3 *output, int width, int height){
-	 int kernel[7][7] = {
+	 const int kernel[7][7] = {
 			{0,0,1,2,1,0,0},
                         {0,3,13,22,13,3,0},
                         {1,13,59,97,59,13,1},
@@ -339,13 +339,13 @@ __global__ void gaussianBlur_avec_SM(uchar3 *input, uchar3 *output, int width, i
         redtile[threadIdx.x][threadIdx.y] = input[tid].x ;   
         greentile[threadIdx.x][threadIdx.y] = input[tid].y ;   
         bluetile[threadIdx.x][threadIdx.y] = input[tid].z ;   
-
+	__syncthreads() ;
         if ((tidx < width-4) and (tidx > 2) and (tidy< height-4) and (tidy>2)){
 	        for  (i=0;i<7;i++){
  	               for (j=0;j<7;j++){
-	                      tempx += (kernel[i][j]) * (redtile[((tidy+j)*width)][tidx+i]) ;
-                              tempy += (kernel[i][j]) * (greentile[((tidy+j)*width)][tidx +i ]) ;
-                              tempz += (kernel[i][j]) * (bluetile[((tidy+j)*width)][tidx + i]) ;
+	                      tempx += (kernel[i][j]) * (redtile[tidx+i][tidy+j]) ;
+                              tempy += (kernel[i][j]) * (greentile[tidx+i][tidy +j ]) ;
+                              tempz += (kernel[i][j]) * (bluetile[tidx+i][tidy + j]) ;
                               somme += kernel[i][j] ;
                        }
                  }
