@@ -1,0 +1,25 @@
+\documentclass{article} 
+\usepackage[utf8]{inputenc} 
+\title{report 6 : map} 
+\author{antoine ranson } 
+\date{November 2019} 
+\begin{document} 
+\maketitle 
+\section{How to implement the labwork} 
+\subsection{Binarization} 
+First you need to set a threshold. For every pixel which value's is superior to the thresold, you modify its value to 255 to set it on white.
+On the other hand, if the pixel's value is inferior to the threshold, you set it on 0 so that the pixel appears black. So you just have a simple if-else comparison. 
+
+\subsection{Brightness control} 
+For brightness control, you need to more parameters for the kernel : a bool that indicates if you want to increase or decrease brightness, and the percentage of how much you want to change 
+it.\newline
+Then if you want to increase brightness : you convert the percentage on a 0 to 255 scale, and you add it to each pixel's value. You just need to check that the sum is not superior to 255, because in this case, 
+you just set the pixel's value to 255.\newline
+ If you want to dicrease brigthness, you need to deduct the converted percentage from the pixel's value, and check that it is not inferior to 0. \subsection{Blending two 
+images} To blend image, you need first to get the second image from the \textbf{argv}. To do this, I just add to 
+labwork a variable inputImage2, and a function loadInputImage2 which does exactly the same as loadInputImage, 
+but on inputImage2.\newline 
+Then, you just need for each pixel of the output, to take the average of the two 
+corresponding pixels of the two input image. For the RGB image, you take each channel independantly. 
+
+\end{document}
