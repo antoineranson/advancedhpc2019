@@ -340,8 +340,8 @@ __global__ void gaussianBlur_avec_SM(uchar3 *input, uchar3 *output, int width, i
 	__shared__ int greentile[16][16] ;
 	__shared__ int bluetile[16][16] ;
 
-        int tidx = (threadIdx.x + blockIdx.x * blockDim.x)-3;
-        int tidy = (threadIdx.y + blockIdx.y * blockDim.y)-3;
+        int tidx = (threadIdx.x +blockIdx.x*16) -3;
+        int tidy = (threadIdx.y +blockIdx.y*16)-3; // + blockIdx.y * blockDim.y)-3;
         int rowIdx = (tidy+3) *width ;
         int tid = tidx +3 + rowIdx ;
         int tempx = 0 ;
@@ -354,7 +354,7 @@ __global__ void gaussianBlur_avec_SM(uchar3 *input, uchar3 *output, int width, i
         greentile[threadIdx.x][threadIdx.y] = input[tid].y ;   
         bluetile[threadIdx.x][threadIdx.y] = input[tid].z ;   
 	__syncthreads() ;
-        if ((tidx < width-4) and (tidx > 2) and (tidy< height-4) and (tidy>2)){
+        if ((tidx < blockDim.x -4) and (tidx > 2) and (tidy< blockDim.y -4) and (tidy>2)){
 	        for  (i=0;i<7;i++){
  	               for (j=0;j<7;j++){
 	                      tempx += (kernel[i][j]) * (redtile[threadIdx.x+i][threadIdx.y+j]) ;
@@ -521,7 +521,42 @@ void Labwork::labwork6_GPU() {
 
 
 __global__ void  grayscale_stretch(uchar3 *input,uchar3*output,int width){
+	int max =0 ;
+	int min=255 ;
+	extern  __shared__ int cache[];
+	unsigned int localtid = threadIdx.x;
+	unsigned int tidx = threadIdx.x + blockIdx.x * blockDim.x;
+	unsigned int tidy = threadIdx.y + blockIdx.y * blockDim.y;
+	unsigned int rowIdx = tidy *width ;
+	int tid = tidx + rowIdx ;
+	cache[localtid] = input[tid].x ;
+	__syncthreads() ;
+	for (int s=1; s< blockDim.x; s*=2){
+		if (localtid % (s*2) == 0) {
+			if (cache[localtid] < cache[localtid+s]){
+				cache[localtid] = cache[localtid +s] ;
+				
+			}
+		}
+	__syncthreads() ;
+	}
+	if (localtid == 0) {max = cache[0] ;}
 
+	cache[localtid] = input[tid].x;
+	__syncthreads() ;
+	for (int s=1; s< blockDim.x; s*=2){
+		if (localtid % (s*2) == 0) {
+			if (cache[localtid] > cache[localtid+s]){
+				cache[localtid] = cache[localtid +s] ;
+				
+			}
+		}
+	__syncthreads() ;
+	}
+	if (localtid == 0) {min = cache[0] ;}
+	output[tid].x = 255*((input[tid].x - min)/(max-min)) ;
+	output[tid].z = output[tid].y = output[tid].x ;
+	
 }
 
 
@@ -532,12 +567,15 @@ void Labwork::labwork7_GPU() {
         // Allocate CUDA memory
         uchar3 *devInput ;
 	uchar3 *devOutput ;
+	uchar3 * devInter ;
 	cudaMalloc(&devInput, pixelCount * sizeof(uchar3));
         cudaMalloc(&devOutput, pixelCount * sizeof(uchar3));
+        cudaMalloc(&devInter, pixelCount * sizeof(uchar3));
         // Copy CUDA Memory from CPU to GPU
         cudaMemcpy(devInput, inputImage->buffer,pixelCount * sizeof(uchar3),cudaMemcpyHostToDevice);
         // Processing
         dim3 blockSize = dim3(16,16);
+	int sharedMemSize = 256 ;
         int numBlockx = inputImage-> width / (blockSize.x) ;
         int numBlocky = inputImage-> height / (blockSize.y) ;
         if ((inputImage-> width % (blockSize.x)) > 0) {
@@ -547,7 +585,8 @@ void Labwork::labwork7_GPU() {
 		numBlocky++ ;
 	}
        dim3 gridSize = dim3(numBlockx,numBlocky) ;
-       //grayscale_strectch<<<gridSize,blockSize>>>(devInput,devOutput, inputImage->width) ;
+       grayscale<<<gridSize,blockSize>>>(devInput,devInter) ;
+       grayscale_stretch<<<gridSize,blockSize,sharedMemSize>>>(devInter,devOutput, inputImage->width) ;
        
        // Copy CUDA Memory from GPU to CPU
        cudaMemcpy(outputImage, devOutput,pixelCount * sizeof(uchar3),cudaMemcpyDeviceToHost);
