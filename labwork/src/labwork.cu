@@ -640,8 +640,8 @@ __global__ void RGB2HSV(uchar3 *input, double *outh,double *outs, double *outv, 
 	if (max == 0){ outs[tid] = 0 ;}
 	else { outs[tid] = delta / max ;	}
 	if (delta == 0){ outh[tid] = 0 ;}
-	else if (maxIdx == 0){ outh[tid] = 60*(((input[tid].y - input[tid].z)/delta)% 6) ; }
-	else if (maxIdx == 1){ outh[tid] = 60*(((input[tid].z - input[tid].x)/delta)+2) ; }
+	else if (maxIdx == 0){ outh[tid] = 60*(((input[tid].y - input[tid].z)/(delta))% 6) ; }
+	else if (maxIdx == 1){ outh[tid] = 60*(((input[tid].z - input[tid].x)/(delta))+2) ; }
 	else{ outh[tid] = 60*(((input[tid].x - input[tid].y)/delta)+4) ; }
 
 }
@@ -663,9 +663,9 @@ __global__ void HSV2RGB(double *outh, double *outs, double *outv, uchar3 *output
 	int l = v *(1-s) ;
 	int m = v*(1-(f*s)) ;
 	int n = v*(1-((1-f)*s)) ;
-	double r ;
-	double g ;
-	double b ;
+	int r ;
+	int g ;
+	int b ;
 	if ((h >= 0) and (h<60)){ r = v ; g = n ; b = l ;}
 	else if ((h>= 60) and (h <120)){ r= m ; g = v ; b = l ;}
 	else if ((h>= 120) and (h <180)){ r= l ; g = v ; b = n ;}
@@ -673,9 +673,9 @@ __global__ void HSV2RGB(double *outh, double *outs, double *outv, uchar3 *output
 	else if ((h>= 240) and (h < 300)){ r= n ; g = l ; b = v ;}
 	else if ((h>= 300) and (h <360)){ r= v ; g = l ; b = m ;}
 	else{ r= 1 ; g = 1 ; b = 1 ;}
-	output[tid].x = r*255 ;
-	output[tid].y = g*255 ;
-	output[tid].z = b*255 ;
+	output[tid].x = r ; //*255 ;
+	output[tid].y = g ; //*255 ;
+	output[tid].z = b; //*255 ;
 
 }
 
@@ -722,7 +722,77 @@ void Labwork::labwork8_GPU() {
        cudaFree(devOutput) ;
 }
 
+
+__global__ void lhisto_calc(uchar3 *input, unsigned int * output, int width){
+	unsigned int tidy = threadIdx.y +blockIdx.y*blockDim.y ;
+	unsigned int tidx = threadIdx.x + blockIdx.x * blockDim.x;
+	if (tidx <width){
+		unsigned int lhisto[256] ;
+		if (tidx ==0){
+			for (int i=0;i<256;i++){ lhisto[i] = 0 ;}
+		}
+		lhisto[(input[tidx].x)] += 1 ;
+
+
+		__syncthreads() ;
+//	output = lhisto ;
+		for (int i=0;i<256;i++){
+			output[256*tidy+i] = lhisto[i] ;
+		}
+	}
+}
+
+__global__ void histoglob_calc(unsigned int *input,unsigned int *output, int height){
+	unsigned int tidy = threadIdx.y +blockIdx.y*blockDim.y ;
+	if (tidy<height){
+		if (tidy == 0) {
+			for (int i = 0; i<256;i++){output[i] = 0 ;}
+		}
+		for (int i = 0; i<256;i++){output[i] += input[256*tidy+i];}
+	}
+
+}
+
+
 void Labwork::labwork9_GPU() {
+       int pixelCount = inputImage->width * inputImage->height ;
+	printf("pixelCount = %d \n\n",pixelCount) ;
+        //allocate memory for the output on the host
+        //outputImage = (malloc(sizeof(int)* 256));
+        // Allocate CUDA memory
+        uchar3 *devInput ;
+	unsigned int *devOutput ;
+	unsigned int *devInter ;
+
+	cudaMalloc(&devInput, pixelCount * sizeof(uchar3));
+        cudaMalloc(&devInter, pixelCount*256* sizeof(unsigned int));
+        cudaMalloc(&devOutput, 256 * sizeof(unsigned int));
+        // Copy CUDA Memory from CPU to GPU
+        cudaMemcpy(devInput, inputImage->buffer,pixelCount * sizeof(uchar3),cudaMemcpyHostToDevice);
+        // Processing
+        dim3 blockSize = dim3(16,16);
+        int numBlockx = inputImage-> width / (blockSize.x) ;
+        int numBlocky = inputImage-> height / (blockSize.y) ;
+
+        if ((inputImage-> width % (blockSize.x)) > 0) {
+	        numBlockx++ ;
+	} 
+        if ((inputImage-> height % (blockSize.y)) > 0){
+		numBlocky++ ;
+	}
+       dim3 gridSize = dim3(numBlockx,numBlocky) ;
+
+	lhisto_calc<<<gridSize,blockSize>>>(devInput, devInter,inputImage->width) ;
+	histoglob_calc<<<gridSize,blockSize>>>(devInter, devOutput,inputImage->height) ;
+	for (int i = 0; i <256; i++){
+		printf("nb de %d : %d    ;   ",i,(&devOutput)[i]) ;
+	}
+       // Copy CUDA Memory from GPU to CPU
+       //cudaMemcpy(outputImage, devOutput,pixelCount * sizeof(uchar3),cudaMemcpyDeviceToHost);
+       // Cleaning
+       cudaFree(devInput) ;
+       cudaFree(devInter) ;
+       cudaFree(devOutput) ;
 
 }
 
