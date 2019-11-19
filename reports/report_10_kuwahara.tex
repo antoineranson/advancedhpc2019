@@ -1,0 +1,45 @@
+\documentclass{article} 
+\usepackage[utf8]{inputenc} 
+\usepackage{amsmath} 
+\usepackage{amssymb} 
+
+\title{Report 10 : kuwahara}
+\author{antoine ranson } 
+\date{November 2019} 
+\begin{document} 
+
+\maketitle 
+
+\section{How to implement the labwork ?}
+
+ The kernel, named kuwahara, will take 5 parameters in input : 
+\begin{itemize} 
+\item the input image in RGB. 
+\item the V's array from the image converted into HSV. 
+\item the wanted output. 
+\item the input image's width and height (these are unnecessary because we have the input image, but it is clearer this way). \end{itemize} 
+
+
+Then, inside the kernel :\newline 
+We need to define the size of the windows used in the kuwahara filter : $\omega$. We will also need variables to calculate the mean, itself needed to calculate the standard deviation. 
+One of it for each window, so 4 for the mean, 4 for the standard deviation. The standard deviations of each 
+window will be stored in an array of size 4, so that finding the minimum of these SD is easy. We also need a 
+mean for the R, the G and the B of the window with the smallest standard deviation. To do so, we would rather 
+use an array of size 3. \newline 
+
+Then, here are the computations : 
+\begin{enumerate} 
+\item We calculate the mean of the V array for each window. 
+\item We calculate the SD of each window with the corresponding formula : $ \sigma^2 = \frac{\displaystyle\sum_{i=1}^{n}(V(i) - \mu)^2 }{n} $ , where $\sigma$ is the SD and $\mu$ is the 
+mean. Here there is no need to take the square root, because we use the SDs (which are positive) to get a 
+minimum, and the function power of two keeps the comparison sens on $\mathbb{R}^{*}$.
+\item We get the miminum of the standard deviations : this gives us the index of the window. 
+\item We calculate the average value for each channel R,G and B only in the window we identified previously. 
+\item Then we affect this average value to the corresponding window of the output. 
+\item To deal we the edges, we just write the value of the pixel's input into the output. 
+
+\end{enumerate} 
+
+We have no performance optimizations, so there is no speedup to measure.
+
+\end{document}

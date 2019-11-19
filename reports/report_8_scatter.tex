@@ -1,0 +1,50 @@
+\documentclass{article} 
+\usepackage[utf8]{inputenc} 
+\usepackage{amsmath} 
+\title{report 8 :scatter} 
+\author{antoine ranson } 
+\date{November 2019} 
+\begin{document} 
+\maketitle 
+\section{How to implement the labwork ?} 
+
+First of all, in the device code, we need to declare 3 array of double which will be the H,S and V array. 
+Then, we declare the 2 kernels RGB2HSV and HSV2RGB. 
+\begin{itemize}
+    \item In RGB2HSV :\newline
+    We store the R,G and B value of the pixel in an array of size 3. We then use this array to find the minimum 
+and maximum among the 3 channels.\newline
+    Once this is done, we just apply the following formulas :
+    \begin{equation}
+        H =
+        \begin{cases}
+        0 & \text{si } \Delta =0 \\
+        60\times(\frac{G-B}{\Delta} \text{ mod } 6) & \text{si max = R}\\
+        60\times(\frac{B-R}{\Delta} +2) & \text{si max = G}\\
+        60\times(\frac{R-G}{\Delta} +4) & \text{si max = B}\\
+        \end{cases}
+        \end{equation}
+        \begin{equation}
+        S =
+        \begin{cases}
+        O & \text{si max = 0}\\
+        (\frac{\Delta}{\text{max}}) & \text{si } max \ne 0\\
+        \end{cases}
+        \end{equation}
+        \newline
+        \begin{equation}
+            \text{ V = max}
+        \end{equation}
+        
+    \item In HSV2RGB :\newline
+    We just apply the formulas given in the slides to convert HSV to RGB.
+    
+\end{itemize}
+   
+ There is no remarkable differences between the input image and the output image which results of the 
+conversion into HSV and back into RGB. \newline\newline 
+
+We have no performance optimization, so there is no 
+speedup to measure.
+
+\end{document}

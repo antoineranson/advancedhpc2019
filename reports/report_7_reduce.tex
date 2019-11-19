@@ -1,0 +1,31 @@
+\documentclass{article} 
+\usepackage[utf8]{inputenc} 
+\title{Report 7 : reduce} 
+\author{antoine ranson } 
+\date{November 2019} 
+\begin{document} 
+
+\maketitle 
+
+\section{How to implement the labwork ?} \newline 
+\begin{itemize} 
+\item Declare a new kernel grayscale\_stretch which have as parameters : the input image, the output image, and the image width. 
+\item In this kernel, reference a share memory space of the corresponding block size. 
+\item In the shared memory, copy the block image data. 
+\item Wait for all the threads to synchronize. 
+\item Then to find the maximum :
+\indent \begin{enumerate} 
+\item compare the pixels two by two, and store the biggest in the current position of the shared memory. 
+\item wait for the threads to synchronize. 
+\item Do it all over again with the superior power of two, until you reach the block width. 
+\item from the thread 0, store the maximum, which is in the first element of the shared memory, in 
+a local variable . 
+\end{enumerate} 
+\item To find the minimum, do the same as previous but storing the smallest pixel for each comparison. 
+\item Finally, for each output pixel g', you apply the following formula : 
+$\frac{255\times(g - min)}{max - min}$ where g is the input image corresponding pixel. 
+\end{itemize} 
+
+We have no performance optimization, so there is no speedup to measure. 
+
+\end{document}

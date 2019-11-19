@@ -101,7 +101,7 @@ int main(int argc, char **argv) {
         case 9:
             labwork.labwork9_GPU();
             printf("[ALGO ONLY] labwork %d ellapsed %.1fms\n", lwNum, timer.getElapsedTimeInMilliSec());
-            labwork.saveOutputImage("labwork9-gpu-out.jpg");
+            //labwork.saveOutputImage("labwork9-gpu-out.jpg");
             break;
         case 10:
             labwork.labwork10_GPU();
@@ -597,43 +597,24 @@ void Labwork::labwork7_GPU() {
        cudaFree(devOutput) ;
 
 }
-__global__ void RGB2HSV(uchar3 *input, double *outh,double *outs, double *outv, int width){
+
+
+
+__global__ void RGB2HSV(uchar3 *input, double *outh, double *outs, double *outv, int width){
 	int maxIdx = 0 ;
-	int max= 0  ;
-	int min=255 ;
+	int max = 0 ;
+	int min = 255 ;
 	int delta = 0 ;
 	unsigned int tidx = threadIdx.x + blockIdx.x * blockDim.x;
 	unsigned int tidy = threadIdx.y + blockIdx.y * blockDim.y;
 	unsigned int rowIdx = tidy *width ;
 	int tid = tidx + rowIdx ;
-	if (input[tid].x > input[tid].y){
-		if (input[tid].x > input[tid].z){
-			max = input[tid].x ;
-			maxIdx = 0 ;
-			if (input[tid].y > input[tid].z){
-				min = input[tid].z ;
-			} else{
-				min = input[tid].y ;
-			}
-		} else {
-			max = input[tid].z ;
-			maxIdx = 2 ;
-			min = input[tid].y ;
-		}
-	}else{
-		if (input[tid].y > input[tid].z){
-			max = input[tid].y ;
-			maxIdx = 1 ;
-			if (input[tid].x > input[tid].z){
-				min = input[tid].z ;
-			} else{
-				min = input[tid].x ;
-			}
-		} else {
-			max = input[tid].z ;
-			maxIdx = 2 ;
-			min = input[tid].x ;
-		}
+	int rgb[3] = {input[tid].x,input[tid].y,input[tid].z} ;
+	min = rgb[0] ;
+	max = rgb[0] ;
+	for (int i = 1; i<3;i++){
+		if (rgb[i] < min){ min = rgb[i] ;}
+		if (rgb[i] > max){ max = rgb[i] ; maxIdx = i ;}
 	}
 	delta = max - min ;
 	outv[tid] = max ;
@@ -644,7 +625,10 @@ __global__ void RGB2HSV(uchar3 *input, double *outh,double *outs, double *outv, 
 	else if (maxIdx == 1){ outh[tid] = 60*(((input[tid].z - input[tid].x)/(delta))+2) ; }
 	else{ outh[tid] = 60*(((input[tid].x - input[tid].y)/delta)+4) ; }
 
+
+
 }
+
 
 __global__ void HSV2RGB(double *outh, double *outs, double *outv, uchar3 *output, int width) {
 
@@ -663,9 +647,9 @@ __global__ void HSV2RGB(double *outh, double *outs, double *outv, uchar3 *output
 	int l = v *(1-s) ;
 	int m = v*(1-(f*s)) ;
 	int n = v*(1-((1-f)*s)) ;
-	int r ;
-	int g ;
-	int b ;
+	double r ;
+	double g ;
+	double b ;
 	if ((h >= 0) and (h<60)){ r = v ; g = n ; b = l ;}
 	else if ((h>= 60) and (h <120)){ r= m ; g = v ; b = l ;}
 	else if ((h>= 120) and (h <180)){ r= l ; g = v ; b = n ;}
@@ -675,7 +659,7 @@ __global__ void HSV2RGB(double *outh, double *outs, double *outv, uchar3 *output
 	else{ r= 1 ; g = 1 ; b = 1 ;}
 	output[tid].x = r ; //*255 ;
 	output[tid].y = g ; //*255 ;
-	output[tid].z = b; //*255 ;
+	output[tid].z = b ; //*255 ;
 
 }
 
@@ -726,7 +710,6 @@ void Labwork::labwork8_GPU() {
 __global__ void lhisto_calc(uchar3 *input, unsigned int * output, int width){
 	unsigned int tidy = threadIdx.y +blockIdx.y*blockDim.y ;
 	unsigned int tidx = threadIdx.x + blockIdx.x * blockDim.x;
-	if (tidx <width){
 		unsigned int lhisto[256] ;
 		if (tidx ==0){
 			for (int i=0;i<256;i++){ lhisto[i] = 0 ;}
@@ -735,10 +718,11 @@ __global__ void lhisto_calc(uchar3 *input, unsigned int * output, int width){
 
 
 		__syncthreads() ;
-//	output = lhisto ;
-		for (int i=0;i<256;i++){
-			output[256*tidy+i] = lhisto[i] ;
-		}
+		if (tidx< 256){
+		//for (int i=0;i<256;i++){
+//			output[256*tidy+tidx] = lhisto[tidx] ;
+//		if (tidx ==0){ printf("lhisto = %d\n\n",lhisto[0]); }
+//		}
 	}
 }
 
@@ -754,19 +738,40 @@ __global__ void histoglob_calc(unsigned int *input,unsigned int *output, int hei
 }
 
 
+
+__global__ void equalization(unsigned int * input, unsigned int * output){
+	int c[256] ;
+	int p[256] ;
+	int tidx = threadIdx.x + blockIdx.x*blockDim.x ;
+	if (tidx < 256){
+		if (tidx == 0){
+			for(int i = 0;i<256;i++){ c[i] = 0 ; }
+		}
+		__syncthreads() ;
+		for(int j = 0;j<256;j++){ c[tidx] += p[j] ; }
+		__syncthreads() ;
+		output[tidx] = c[tidx]*255 ;
+	}
+	__syncthreads() ;
+
+}
+
 void Labwork::labwork9_GPU() {
        int pixelCount = inputImage->width * inputImage->height ;
 	printf("pixelCount = %d \n\n",pixelCount) ;
         //allocate memory for the output on the host
-        //outputImage = (malloc(sizeof(int)* 256));
+        outputImage = static_cast<char *>(malloc(sizeof(unsigned int)* 256));
         // Allocate CUDA memory
         uchar3 *devInput ;
 	unsigned int *devOutput ;
+	unsigned int *devTemp ;
 	unsigned int *devInter ;
 
 	cudaMalloc(&devInput, pixelCount * sizeof(uchar3));
         cudaMalloc(&devInter, pixelCount*256* sizeof(unsigned int));
+        cudaMalloc(&devTemp, 256 * sizeof(unsigned int));
         cudaMalloc(&devOutput, 256 * sizeof(unsigned int));
+
         // Copy CUDA Memory from CPU to GPU
         cudaMemcpy(devInput, inputImage->buffer,pixelCount * sizeof(uchar3),cudaMemcpyHostToDevice);
         // Processing
@@ -783,20 +788,186 @@ void Labwork::labwork9_GPU() {
        dim3 gridSize = dim3(numBlockx,numBlocky) ;
 
 	lhisto_calc<<<gridSize,blockSize>>>(devInput, devInter,inputImage->width) ;
-	histoglob_calc<<<gridSize,blockSize>>>(devInter, devOutput,inputImage->height) ;
-	for (int i = 0; i <256; i++){
-		printf("nb de %d : %d    ;   ",i,(&devOutput)[i]) ;
-	}
+	histoglob_calc<<<gridSize,blockSize>>>(devInter, devTemp,inputImage->height) ;
+	equalization<<<gridSize,blockSize>>>(devTemp, devOutput) ;
+//	for (int i = 0; i <50; i++){
+//		printf("nb de %d : %d    ;   ",i,devOutput[i]) ;
+//	}
        // Copy CUDA Memory from GPU to CPU
-       //cudaMemcpy(outputImage, devOutput,pixelCount * sizeof(uchar3),cudaMemcpyDeviceToHost);
+       cudaMemcpy(outputImage, devTemp,256* sizeof(unsigned int),cudaMemcpyDeviceToHost);
        // Cleaning
+	for (int i=0 ; i<256 ; i++){
+		printf(" nb de %d : %d   ;   ",i,outputImage[i]);
+	}
        cudaFree(devInput) ;
        cudaFree(devInter) ;
        cudaFree(devOutput) ;
 
 }
 
+__global__ void kuwahara(uchar3 * inputImage, double*outv, uchar3 * output,int width,int height){
+
+	int w = 50 ;
+	
+	int tidx = threadIdx.x + blockIdx.x * blockDim.x ;
+	int tidy = threadIdx.y + blockIdx.y * blockDim.y ;
+	int rowIdx = tidy*width ;
+	int tid = tidx + rowIdx ;
+	double min ; int minIdx = 0 ;
+	double sum1 = 0.0 ; 
+	double sum2 = 0.0 ; 
+	double sum3 = 0.0 ; 
+	double sum4 = 0.0 ; 
+	double mean1,mean2,mean3,mean4 ;
+	int meanFinal[3] = {0,0,0} ; 
+	double sD[4] = {0.0, 0.0, 0.0, 0.0};
+	if ((tidx > w) and (tidx < width-(w+1)) and (tidy > w) and (tidy< height-(w+1))){
+   	for(int i=0; i<w+1; ++i)
+	{ for (int j =0; j<w+1;j++){
+		sum1 += outv[(tid-i)-(j*width) ] ; 
+		sum2 += outv[(tid+i)-(j*width) ] ;
+		sum3 += outv[(tid-i)+(j*width) ] ;
+		sum4 += outv[(tid+i)+(j*width) ] ;
+	  }
+	}
+    	mean1 = sum1/pow(w+1,2);
+    	mean2 = sum2/pow(w+1,2);
+    	mean3 = sum3/pow(w+1,2);
+    	mean4 = sum4/pow(w+1,2);
+	
+    	for(int i=0; i<w+1 ; ++i)
+	{ for (int j=0;j<w+1 ; j++){
+        	sD[0] += pow(outv[(tid-i)-(j*width) ] - mean1, 2);
+        	sD[1] += pow(outv[(tid+i)-(j*width) ] - mean2, 2);
+        	sD[2] += pow(outv[(tid-i)+(j*width) ] - mean3, 2);
+        	sD[3] += pow(outv[(tid+i)+(j*width) ] - mean4, 2);
+	  }
+	}
+	min = sD[0] ;
+	for (int i = 1;i<4;i++){
+		if (sD[i] < min){ minIdx = i ; min = sD[i] ; }
+	}
+	switch(minIdx){
+		case 0 :
+    			for(int i=0; i<w+1 ; ++i)
+			{ for (int j=0;j<w+1 ; j++){
+        			meanFinal[0] += inputImage[(tid-i)-(j*width) ].x ;
+        			meanFinal[1] += inputImage[(tid-i)-(j*width) ].y ;
+        			meanFinal[2] += inputImage[(tid-i)-(j*width) ].z ;
+			  }
+			}
+			break ;
+		case 1 :
+    			for(int i=0; i<w+1 ; ++i)
+			{ for (int j=0;j<w+1 ; j++){
+        			meanFinal[0] += inputImage[(tid-i)+(j*width) ].x ;
+        			meanFinal[1] += inputImage[(tid-i)+(j*width) ].y ;
+        			meanFinal[2] += inputImage[(tid-i)+(j*width) ].z ;
+			  }
+			}
+			break ;
+		case 2 :
+    			for(int i=0; i<w+1 ; ++i)
+			{ for (int j=0;j<w+1 ; j++){
+        			meanFinal[0] += inputImage[(tid+i)-(j*width) ].x ;
+        			meanFinal[1] += inputImage[(tid+i)-(j*width) ].y ;
+        			meanFinal[2] += inputImage[(tid+i)-(j*width) ].z ;
+			  }
+			}
+			break ;
+		case 3 :
+    			for(int i=0; i<w+1 ; ++i)
+			{ for (int j=0;j<w+1 ; j++){
+        			meanFinal[0] += inputImage[(tid+i)+(j*width) ].x ;
+        			meanFinal[1] += inputImage[(tid+i)+(j*width) ].y ;
+        			meanFinal[2] += inputImage[(tid+i)+(j*width) ].z ;
+			  }
+			}
+			break ;
+		default : break ;
+	}
+	meanFinal[0] = meanFinal[0]/pow(w+1,2) ;
+	meanFinal[1] = meanFinal[1]/pow(w+1,2) ;
+	meanFinal[2] = meanFinal[2]/pow(w+1,2) ;
+
+	for (int i =0;i<w+1;i++)
+	{ for (int j = 0 ; j<w+1 ; j++){
+		switch(minIdx){
+			case 0 :
+				output[(tid-i)-(j*width) ].x = meanFinal[0] ;
+				output[(tid-i)-(j*width) ].y = meanFinal[1] ;
+				output[(tid-i)-(j*width) ].z = meanFinal[2] ;
+				break ;
+			case 1 :
+
+				output[(tid-i)+(j*width) ].x = meanFinal[0] ;
+				output[(tid-i)+(j*width) ].y = meanFinal[1] ;
+				output[(tid-i)+(j*width) ].z = meanFinal[2] ;
+				break ;
+			case 2 :
+
+				output[(tid+i)-(j*width) ].x = meanFinal[0] ;
+				output[(tid+i)-(j*width) ].y = meanFinal[1] ;
+				output[(tid+i)-(j*width) ].z = meanFinal[2] ;
+				break ;
+
+			case 3 :
+
+				output[(tid+i)+(j*width) ].x = meanFinal[0] ;
+				output[(tid+i)+(j*width) ].y = meanFinal[1] ;
+				output[(tid+i)+(j*width) ].z = meanFinal[2] ;
+				break ;
+
+			default : break ;
+			}
+	  }
+	}
+	}
+}
+
 void Labwork::labwork10_GPU(){
+       int pixelCount = inputImage->width * inputImage->height ;
+	printf("pixelCount = %d \n\n",pixelCount) ;
+        //allocate memory for the output on the host
+        outputImage = static_cast<char *>(malloc(3* pixelCount*sizeof(int)));
+        // Allocate CUDA memory
+        uchar3 *devInput ;
+	uchar3 *devOutput ;
+
+	double *outh ; //[pixelCount] ;
+	double *outs ; //[pixelCount] ;
+	double *outv ; //[pixelCount] ;
+
+	cudaMalloc(&devInput, pixelCount * sizeof(uchar3));
+        cudaMalloc(&devOutput, pixelCount * sizeof(uchar3));
+        cudaMalloc(&outh, pixelCount * sizeof(double));
+        cudaMalloc(&outs, pixelCount * sizeof(double));
+        cudaMalloc(&outv, pixelCount * sizeof(double));
+
+        // Copy CUDA Memory from CPU to GPU
+        cudaMemcpy(devInput, inputImage->buffer,pixelCount * sizeof(uchar3),cudaMemcpyHostToDevice);
+        // Processing
+        dim3 blockSize = dim3(16,16);
+        int numBlockx = inputImage-> width / (blockSize.x) ;
+        int numBlocky = inputImage-> height / (blockSize.y) ;
+
+        if ((inputImage-> width % (blockSize.x)) > 0) {
+	        numBlockx++ ;
+	} 
+        if ((inputImage-> height % (blockSize.y)) > 0){
+		numBlocky++ ;
+	}
+       dim3 gridSize = dim3(numBlockx,numBlocky) ;
+
+	RGB2HSV<<<gridSize,blockSize>>>(devInput, outh,outs,outv,inputImage->width) ;
+	kuwahara<<<gridSize,blockSize>>>(devInput, outv, devOutput,inputImage->width, inputImage->height) ;
+
+       cudaMemcpy(outputImage, devOutput,pixelCount* sizeof(uchar3),cudaMemcpyDeviceToHost);
+
+       cudaFree(devInput) ;
+       cudaFree(devOutput) ;
+
+
 }
 
 
