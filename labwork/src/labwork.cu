@@ -622,9 +622,9 @@ __global__ void RGB2HSV(uchar3 *input, double *outh, double *outs, double *outv,
 	if (max == 0){ outs[tid] = 0 ;}
 	else { outs[tid] = delta / max ;	}
 	if (delta == 0){ outh[tid] = 0 ;}
-	if (maxIdx == 0){ outh[tid] = 60*(((int)((input[tid].y - input[tid].z)/(delta))) % 6) ; }
-	if (maxIdx == 1){ outh[tid] = 60*(((input[tid].z - input[tid].x)/(delta))+2) ; }
-	if (maxIdx == 2){ outh[tid] = 60*(((input[tid].x - input[tid].y)/delta)+4) ; }
+	if (maxIdx == 0){ outh[tid] = 60*(((int)(((double) input[tid].y - (double) input[tid].z)/(delta))) % 6) ; }
+	if (maxIdx == 1){ outh[tid] = 60*((((double) input[tid].z - (double) input[tid].x)/(delta))+2) ; }
+	if (maxIdx == 2){ outh[tid] = 60*((((double) input[tid].x - (double) input[tid].y)/delta)+4) ; }
 
 	}
 }
@@ -710,18 +710,21 @@ void Labwork::labwork8_GPU() {
 
 __global__ void lhisto_calc(uchar3 *input, unsigned int * output, int width,int height){
 	unsigned int tidx = threadIdx.x + blockIdx.x*blockDim.x ;
-	if (tidx < height){
-		//if (tidx == 0){ output = {0} ; }
-		for (int i =0; i< width; i++){ output[256*tidx + (input[i + tidx*width].x)] ++ ; }
+	if (tidx < height)
+	{
+		for (int i =0; i< width; i++)
+		{ 
+			output[256*tidx + (input[i + tidx*width].x)] +=1 ; 
+		}
 	}
 		__syncthreads() ;
 
 }
 
 __global__ void histoglob_calc(unsigned int *input,unsigned int *output,int width, int height){
-	unsigned int tidx= threadIdx.x +blockIdx.x*blockDim.x ;
-	if (tidx < height){
-		//if (tidx == 0){ output = {0} ; }
+	//unsigned int tidx= threadIdx.x +blockIdx.x*blockDim.x ;
+	//if (tidx < height){
+		for (int tidx= 0;tidx<height;tidx++){ 
 		for (int i = 0; i < 256 ; i++){ output[i] += input[256*tidx+i];}
 	}
 	__syncthreads() ;
@@ -731,16 +734,15 @@ __global__ void histoglob_calc(unsigned int *input,unsigned int *output,int widt
 
 
 __global__ void equalization(unsigned int * input, unsigned int * output,int pixelCount){
-	float c[256] ;
-	float p[256] ;
+	double c[256] ;
+	double p[256] ;
 //	int tidx = threadIdx.x + blockIdx.x*blockDim.x ;
 //	if (tidx < 256){
-	for(int tidx = 0;tidx<256;tidx++){	p[tidx] = input[tidx]/pixelCount ;
+	for(int tidx = 0;tidx<256;tidx++){
+		p[tidx] = (double) input[tidx]/pixelCount ;
 		for(int j = 0; j<tidx ; j++){ c[tidx] += p[j] ; }
 		output[tidx] = c[tidx]*255 ;
 	}
-	if (threadIdx.x ==0){
-		for (int i =0;i<256;i++){ printf("p[%d] = %f\n",i,p[i]) ;}}
 	__syncthreads() ;
 
 }
@@ -765,7 +767,7 @@ void Labwork::labwork9_GPU() {
         // Copy CUDA Memory from CPU to GPU
         cudaMemcpy(devInput, inputImage->buffer,pixelCount * sizeof(uchar3),cudaMemcpyHostToDevice);
         // Processing
-        int blockSize = 64;
+        int blockSize = 16;
         int numBlockx = inputImage->height / blockSize ;
 	if (inputImage->height %blockSize > 0){ numBlockx ++ ;}
 
