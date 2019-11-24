@@ -1,0 +1,39 @@
+\documentclass{article} 
+\usepackage[utf8]{inputenc} 
+\title{report 5 : Gaussian Blur} 
+\author{antoine ranson } 
+\date{November 2019} 
+\begin{document} 
+
+\maketitle 
+
+\section{How to implement the gaussian blur filter} To implement the gaussian blur filter, we will use one kernel. In this kernel, we first declare the following gaussian matrix of size 7x7 we will use to filter the image: \newline
+ 
+\[
+   M=
+  \left[ {\begin{array}{ccccccc}
+   0 & 0 & 1 & 2 & 1 & 0 & 0 \\
+   0 & 3 & 13 & 22 & 13 & 3 & 0 \\
+   1 & 13 & 59 & 97 & 50 & 13 & 1\\
+   2 & 22 & 97 & 159 & 97 & 22 & 2\\
+   1 & 13 & 59 & 97 & 50 & 13 & 1\\
+   0 & 3 & 13 & 22 & 13 & 3 & 0 \\
+   0 & 0 & 1 & 2 & 1 & 0 & 0 \\
+  \end{array} } \right] \] \newline 
+To avoid using negative numbers, I chose to manipulate the tidx and tidy by 
+substracting 3 of each, o that the calcuation would begin in the upper-left corner, and not in the middle of the 
+matrix. Then, if there is a shared memory, we need to declare three tiles in the shared memory, one for each 
+color's channel (R,G and B). 
+
+\subsection{With the shared Memory} 
+Before any calculation, we need to fill the 
+declared tiles. To do so, we just write the current pixel at its thread index (x,y). Each color's channel works 
+the same, so we will only focus on one channel next. We now need to check that the current thread does not 
+overflow the boundaries of the tile, so that its value makes sens. If there is no problem, we loop on 2 
+dimension to perform the 2D convolution, which consists in the accumulation of the corresponding matrix value 
+$m_{i,j}$ times the corresponding pixel value $p_{i,j} $ : 
+$p_{k,l} = \displaystyle\frac{1}{\displaystyle\sum_{p,q\in [0...6]^2} m_{p,q}} \times \displaystyle\sum_{i,j\in [0...6]^2} m_{i,j}\times p_{i,j}$, 
+where $p_{k,l}$ is the new pixel's value. 
+
+Here, we are not taking care of the edges, which cause the small abnormalities in the display of the image.
+\end{document}

@@ -1,0 +1,33 @@
+\documentclass{article} 
+\usepackage[utf8]{inputenc} 
+\title{report 9 : Gather} 
+\author{antoine ranson } 
+\date{November 2019} 
+\begin{document} 
+
+\maketitle 
+
+\section{How to implement the labwork ?} 
+\subsection{Labwork 9a : Histogram calculation}
+
+First of all, we need to calculate the histogram of the input image. To do so, we use 2 kernels : 
+\begin{itemize} 
+\item The first one allows to calculate the local histogram of each row of the image. This is 
+done simply by accumulating a value each time a pixel has it. \newline
+To avoid concurrent writing, we store each local histogram in an array of size $256\times (number\ of\ rows\ of\ the\ image)$, at the index of its corresponding row. 
+\item The second one takes this huge array as input, and returns the global histogram as output. The global histogram is an array of size 256, which is filled with the accumulation of each value from 0 to 256 from every row. 
+\end{itemize} 
+
+\subsection{Labwork 9b : Histogram equalization} 
+
+Once the histogram is calculated, we just have to apply the maths formula to equalize it : 
+\begin{enumerate} \item we calculate the $p_i$ for each value from 0 to 256 : $p_i = \frac{histo_i}{pixelCount}$ . 
+\item we calculate the cumulative distribution function $c_i$ for $i\in[0...256]$ with the formula : $c_i = \displaystyle\sum_{j=0}^i{p_j}$ . Then we multiply it by 255 to scale it on the right image's pixel scale. 
+\item The output is an array of the previous $c_i$. 
+\end{enumerate} 
+
+\subsection{Performance optimization} 
+
+We have no performance optimization, so there is no speedup to measure. 
+
+\end{document}
